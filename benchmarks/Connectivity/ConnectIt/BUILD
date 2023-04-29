@@ -10,6 +10,7 @@ cc_library(
         "//benchmarks/Connectivity/LabelPropagation:Connectivity",
         "//benchmarks/Connectivity/LiuTarjan:Connectivity",
         "//benchmarks/Connectivity/ShiloachVishkin:Connectivity",
+        "//benchmarks/Connectivity/Contour:Connectivity",
         "//benchmarks/Connectivity/UnionFind:Connectivity",
         "//benchmarks/Connectivity/WorkEfficientSDB14:Connectivity",
     ],

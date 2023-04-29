@@ -27,12 +27,13 @@
 #include "gbbs/gbbs.h"
 
 namespace gbbs {
-namespace shiloachvishkin_cc {
+
+namespace contour_cc {
 
 template <class Graph>
-struct SVAlgorithm {
+struct MMAlgorithm {
   Graph& GA;
-  SVAlgorithm(Graph& GA) : GA(GA) {}
+  MMAlgorithm(Graph& GA) : GA(GA) {}
   sequence<parent> prev_parents;
   sequence<bool> flags;
 
@@ -81,12 +82,37 @@ struct SVAlgorithm {
           [&](uintE i) {
             uintE u = candidates[i];
             auto map_f = [&](const uintE& _u, const uintE& _v, const W& wgh) {
-              parent p_u = prev_parents[_u];
-              parent p_v = prev_parents[_v];
-              parent l = std::min(p_u, p_v);
-              parent h = std::max(p_u, p_v);
-              if (l != h && h == prev_parents[h]) {
-                gbbs::write_min<parent>(&parents[h], l, std::less<parent>());
+              parent p_u = parents[_u];
+              parent p_v = parents[_v];
+              parent gp_u = parents[p_u];
+              parent gp_v = parents[p_v];
+              parent l = std::min(gp_u, gp_v);
+              if (p_u>l) {
+                //std::atomic_compare_exchange_strong(parents[_u], p_u, l);
+                parents[_u]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+
+              if (p_v>l) {
+                //std::atomic_compare_exchange_strong(parents[_v], p_v, l);
+                parents[_v]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+              if (gp_u>l) {
+                //std::atomic_compare_exchange_strong(parents[p_u], gp_u, l);
+                parents[p_u]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+
+              if (gp_v>l) {
+                //std::atomic_compare_exchange_strong(parents[p_v], gp_v, l);
+                parents[p_v]=l;
                 if (!changed) {
                   changed = true;
                 }
@@ -95,17 +121,6 @@ struct SVAlgorithm {
             GA.get_vertex(u).out_neighbors().map(map_f);
           },
           1);
-
-      // compress
-      parallel_for(0, n, [&](uintE u) {
-        uintE pathlen = 1;
-        while (parents[u] != parents[parents[u]]) {
-          parents[u] = parents[parents[u]];
-          pathlen++;
-        }
-        prev_parents[u] = parents[u];
-        report_pathlen(pathlen);
-      });
     }
     std::cout << "#rounds = " << rounds << std::endl;
   }
@@ -125,48 +140,43 @@ struct SVAlgorithm {
         UpdateType utype;
         std::tie(u, v, utype) = updates[i];
         if (utype == insertion_type) { /* update */
-          parent p_u = prev_parents[u];
-          parent p_v = prev_parents[v];
-          parent l = std::min(p_u, p_v);
-          parent h = std::max(p_u, p_v);
-          if (l != h && h == prev_parents[h]) {
-            gbbs::write_min<parent>(&parents[h], l, std::less<parent>());
+          parent p_u = parents[u];
+          parent p_v = parents[v];
+          parent gp_u = parents[p_u];
+          parent gp_v = parents[p_v];
+          parent l = std::min(gp_u, gp_v);
+          if (p_u>l) {
+            //std::atomic_compare_exchange_strong(parents[u], p_u, l);
+            parents[u]=l;
             if (!changed) {
               changed = true;
             }
           }
+
+          if (p_v>l) {
+            //std::atomic_compare_exchange_strong(parents[v], p_v, l);
+            parents[v]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+          if (gp_u>l) {
+            //std::atomic_compare_exchange_strong(parents[p_u], gp_u, l);
+            parents[p_u]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+
+          if (gp_v>l) {
+            //std::atomic_compare_exchange_strong(parents[p_v], gp_v, l);
+            parents[p_v]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+
         } /* ignore queries for now */
-      });
-
-      //      auto diff_map = parlay::delayed_seq<size_t>(parents.size(), [&]
-      //      (size_t i) {
-      //        return parents[i] != prev_parents[i];
-      //      });
-
-      // compress
-      parallel_for(0, updates.size(), [&](size_t i) {
-        uintE pathlen = 1;
-        auto[u, v, utype] = updates[i];
-        (void)utype;
-        if (flags[u] == false &&
-            gbbs::atomic_compare_and_swap(&flags[u], false, true)) {
-          while (parents[u] != parents[parents[u]]) {
-            parents[u] = parents[parents[u]];
-            pathlen++;
-          }
-          prev_parents[u] = parents[u];
-          report_pathlen(pathlen);
-        }
-
-        if (flags[v] == false &&
-            gbbs::atomic_compare_and_swap(&flags[v], false, true)) {
-          while (parents[v] != parents[parents[v]]) {
-            parents[v] = parents[parents[v]];
-            pathlen++;
-          }
-          prev_parents[v] = parents[v];
-          report_pathlen(pathlen);
-        }
       });
 
       // reset flags
@@ -180,30 +190,12 @@ struct SVAlgorithm {
           flags[v] = false;
         }
       });
-
-      // compress (also performs queries implicitly on last round)
-      //      parallel_for(0, updates.size(), [&] (uintE i) {
-      //        uintE pathlen = 1;
-      //        auto [u, v, utype] = updates[i];
-      //        while (parents[u] != parents[parents[u]]) {
-      //          parents[u] = parents[parents[u]];
-      //          pathlen++;
-      //        }
-      //        report_pathlen(pathlen);
-      //
-      //        pathlen = 1;
-      //        while (parents[v] != parents[parents[v]]) {
-      //          parents[v] = parents[parents[v]];
-      //          pathlen++;
-      //        }
-      //        prev_parents[u] = parents[u];
-      //        prev_parents[v] = parents[v];
-      //        report_pathlen(pathlen);
-      //      });
     }
   }
+
+
 };
 
-}  // namespace shiloachvishkin_cc
+}  // namespace contour.cc
 
 }  // namespace gbbs

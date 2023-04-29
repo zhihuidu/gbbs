@@ -3,6 +3,7 @@
 #include "benchmarks/Connectivity/LabelPropagation/Connectivity.h"
 #include "benchmarks/Connectivity/LiuTarjan/Connectivity.h"
 #include "benchmarks/Connectivity/ShiloachVishkin/Connectivity.h"
+#include "benchmarks/Connectivity/Contour/Connectivity.h"
 #include "benchmarks/Connectivity/UnionFind/Connectivity.h"
 #include "benchmarks/Connectivity/common.h"
 
