@@ -150,6 +150,13 @@ sequence<parent> run_uf_alg(Graph& G, commandLine& P) {
                                         sampling_option>(G, P, alg);
 }
 
+template <class Graph, SamplingOption sampling_option >
+sequence<parent> run_contour_alg(Graph& G, commandLine& P) {
+  size_t n = G.n;
+  using CT = uf_min_map::MMAlgorithm<Graph>;
+  auto alg = CT(G);
+  return compose_algorithm_and_sampling<Graph, decltype(alg), sampling_option>(G, P, alg);
+}
 template <class Graph, SamplingOption sampling_option, FindOption find_option,
           UniteOption unite_option, SpliceOption splice_option>
 sequence<parent> run_uf_alg(Graph& G, commandLine& P) {

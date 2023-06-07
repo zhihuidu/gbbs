@@ -162,4 +162,188 @@ sequence<parent> find_compress_uf(size_t n, Seq& updates) {
 }
 
 }  // namespace union_find
+
+
+
+
+namespace uf_min_map {
+
+/* ================================== CSR templates
+ * ================================== */
+
+template <class Graph>
+struct MMAlgorithm {
+  Graph& GA;
+  MMAlgorithm(Graph& GA) : GA(GA) {}
+  sequence<parent> prev_parents;
+  sequence<bool> flags;
+
+  void initialize(sequence<parent>& P) {
+    prev_parents = P;
+    flags = sequence<bool>(P.size(), false);
+  }
+
+  template <SamplingOption sampling_option>
+  void compute_components(sequence<parent>& parents,
+                          parent frequent_comp = UINT_E_MAX) {
+    using W = typename Graph::weight_type;
+    size_t n = GA.n;
+
+    bool changed = true;
+    size_t rounds = 0;
+    std::cout << "# frequent_comp = " << frequent_comp << std::endl;
+
+    /* generate candidates based on frequent_comp (if using sampling) */
+    size_t candidates_size = n;
+    sequence<uintE> unhooked;
+    if
+      constexpr(sampling_option != no_sampling) {
+        auto all_vertices =
+            parlay::delayed_seq<uintE>(n, [&](size_t i) { return i; });
+        unhooked = parlay::filter(
+            all_vertices, [&](uintE v) { return parents[v] != frequent_comp; });
+        candidates_size = unhooked.size();
+      }
+
+    auto candidates =
+        parlay::delayed_seq<uintE>(candidates_size, [&](size_t i) {
+          if
+            constexpr(sampling_option == no_sampling) { return i; }
+          else {
+            return unhooked[i];
+          }
+        });
+
+    /*
+    while (changed) {
+      changed = false;
+      rounds++;
+      std::cout << "# round = " << rounds << std::endl;
+      parallel_for(
+          0, candidates.size(),
+          [&](uintE i) {
+            uintE u = candidates[i];
+            auto map_f = [&](const uintE& _u, const uintE& _v, const W& wgh) {
+              parent p_u = parents[_u];
+              parent p_v = parents[_v];
+              parent gp_u = parents[p_u];
+              parent gp_v = parents[p_v];
+              parent l = std::min(gp_u, gp_v);
+              if (p_u>l) {
+                //std::atomic_compare_exchange_strong(parents[_u], p_u, l);
+                parents[_u]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+
+              if (p_v>l) {
+                //std::atomic_compare_exchange_strong(parents[_v], p_v, l);
+                parents[_v]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+              if (gp_u>l) {
+                //std::atomic_compare_exchange_strong(parents[p_u], gp_u, l);
+                parents[p_u]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+
+              if (gp_v>l) {
+                //std::atomic_compare_exchange_strong(parents[p_v], gp_v, l);
+                parents[p_v]=l;
+                if (!changed) {
+                  changed = true;
+                }
+              }
+            };
+            GA.get_vertex(u).out_neighbors().map(map_f);
+          },
+          1);
+    }
+    */
+
+
+
+    while (changed) {
+      rounds++;
+      std::cout << "# running round = " << rounds << std::endl;
+      changed = false;
+
+
+      parallel_for(
+          0, candidates.size(),
+          [&](uintE i) {
+
+      //parallel_for(0, updates.size(), [&](size_t i) {
+        parent u, v;
+        { /* update */
+          parent p_u = parents[u];
+          parent p_v = parents[v];
+          parent gp_u = parents[p_u];
+          parent gp_v = parents[p_v];
+          parent l = std::min(gp_u, gp_v);
+          if (p_u>l) {
+            //std::atomic_compare_exchange_strong(parents[u], p_u, l);
+            parents[u]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+
+          if (p_v>l) {
+            //std::atomic_compare_exchange_strong(parents[v], p_v, l);
+            parents[v]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+          if (gp_u>l) {
+            //std::atomic_compare_exchange_strong(parents[p_u], gp_u, l);
+            parents[p_u]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+
+          if (gp_v>l) {
+            //std::atomic_compare_exchange_strong(parents[p_v], gp_v, l);
+            parents[p_v]=l;
+            if (!changed) {
+              changed = true;
+            }
+          }
+
+        } /* ignore queries for now */
+      });
+
+    }
+
+
+    std::cout << "#rounds = " << rounds << std::endl;
+  }
+
+
+};
+
+/* default union_find algorithm using find_compress and unite */
+template <class Seq>
+sequence<parent> find_compress_uf(size_t n, Seq& updates) {
+  auto find = find_variants::find_compress;
+  auto unite = unite_variants::Unite<decltype(find)>(find);
+  auto parents =
+      sequence<parent>::from_function(n, [&](size_t i) { return i; });
+  parallel_for(0, updates.size(), [&](size_t i) {
+    auto[u, v] = updates[i];
+    unite(u, v, parents);
+  });
+  return parents;
+}
+
+}  // namespace union_find
+
+
 }  // namespace gbbs

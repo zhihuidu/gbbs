@@ -1,7 +1,6 @@
-// This code is part of the project "Theoretically Efficient Parallel Graph
-// Algorithms Can Be Fast and Scalable", presented at Symposium on Parallelism
-// in Algorithms and Architectures, 2018.
-// Copyright (c) 2018 Laxman Dhulipala, Guy Blelloch, and Julian Shun
+// This code is part of the project "Contour Algorithm for Connectivity" 2023,
+//  Zhihui Du, Oliver Alvarado Rodriguez,  Fuhuan Li, 
+// Mohammad Dindoost and David A. Bader
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +24,7 @@
 
 #include "benchmarks/Connectivity/common.h"
 #include "gbbs/gbbs.h"
+
 
 namespace gbbs {
 
@@ -73,14 +73,73 @@ struct MMAlgorithm {
           }
         });
 
+/*
+    auto EdgeList=GA.edges();
+    //Concurrency::task_scheduler_init init(1024);
     while (changed) {
       changed = false;
       rounds++;
       std::cout << "# round = " << rounds << std::endl;
       parallel_for(
-          0, candidates.size(),
+          0, EdgeList.size(),
           [&](uintE i) {
-            uintE u = candidates[i];
+            parent _u,_v;
+            W weight;
+            std::tie(_u, _v, weight) = EdgeList[i];
+
+              parent p_u = parents[_u];
+              parent p_v = parents[_v];
+              parent gp_u = parents[p_u];
+              parent gp_v = parents[p_v];
+              parent l = std::min(gp_u, gp_v);
+              if (gp_u>l) {
+                //gbbs::atomic_compare_and_swap(&parents[p_u], gp_u, l);
+                //gbbs::atomic_compare_and_swap(&parents[_u], p_u, l);
+                parents[p_u]=l;
+                //parents[_u]=l;
+                changed = true;
+              } 
+              {
+                if (p_u>l) {
+                  //gbbs::atomic_compare_and_swap(&parents[_u], p_u, l);
+                  parents[_u]=l;
+                  changed = true;
+                }
+              }
+              if (gp_v>l) {
+                //gbbs::atomic_compare_and_swap(&parents[p_v], gp_v, l);
+                parents[p_v]=l;
+                //gbbs::atomic_compare_and_swap(&parents[_v], p_v, l);
+                //parents[_v]=l;
+                changed = true;
+              } 
+              {
+                if (p_v>l) {
+                  //gbbs::atomic_compare_and_swap(&parents[_v], p_v, l);
+                  parents[_v]=l;
+                  changed = true;
+                }
+
+              }
+       },EdgeList.size());
+    }
+
+
+    std::cout << "#total iterations " << rounds << std::endl;
+*/
+/*
+    auto EdgeList=GA.edges();
+    while (changed) {
+      changed = false;
+      rounds++;
+      //std::cout << "# round = " << rounds << std::endl;
+      parallel_for(
+          0, EdgeList.size(),
+          [&](uintE i) {
+            parent u,v;
+            W weight;
+            std::tie(u, v, weight) = EdgeList[i];
+
             auto map_f = [&](const uintE& _u, const uintE& _v, const W& wgh) {
               parent p_u = parents[_u];
               parent p_v = parents[_v];
@@ -90,38 +149,76 @@ struct MMAlgorithm {
               if (p_u>l) {
                 //std::atomic_compare_exchange_strong(parents[_u], p_u, l);
                 parents[_u]=l;
-                if (!changed) {
-                  changed = true;
-                }
+                changed = true;
               }
 
               if (p_v>l) {
                 //std::atomic_compare_exchange_strong(parents[_v], p_v, l);
                 parents[_v]=l;
-                if (!changed) {
-                  changed = true;
-                }
+                changed = true;
               }
               if (gp_u>l) {
                 //std::atomic_compare_exchange_strong(parents[p_u], gp_u, l);
                 parents[p_u]=l;
-                if (!changed) {
-                  changed = true;
-                }
+                changed = true;
               }
 
               if (gp_v>l) {
                 //std::atomic_compare_exchange_strong(parents[p_v], gp_v, l);
                 parents[p_v]=l;
-                if (!changed) {
-                  changed = true;
-                }
+                changed = true;
+              }
+            };
+            EdgeList[i].map(map_f);
+          },
+          EdgeList.size());
+    }
+*/
+
+    while (changed) {
+      changed = false;
+      rounds++;
+      //std::cout << "# round = " << rounds << std::endl;
+      parallel_for(
+          0, candidates.size(),
+          [&](uintE i) {
+            uintE u = candidates[i];
+
+            auto map_f = [&](const uintE& _u, const uintE& _v, const W& wgh) {
+              parent p_u = parents[_u];
+              parent p_v = parents[_v];
+              parent gp_u = parents[p_u];
+              parent gp_v = parents[p_v];
+              parent l = std::min(gp_u, gp_v);
+              if (p_u>l) {
+                //std::atomic_compare_exchange_strong(parents[_u], p_u, l);
+                parents[_u]=l;
+                changed = true;
+              }
+
+              if (p_v>l) {
+                //std::atomic_compare_exchange_strong(parents[_v], p_v, l);
+                parents[_v]=l;
+                changed = true;
+              }
+              if (gp_u>l) {
+                //std::atomic_compare_exchange_strong(parents[p_u], gp_u, l);
+                parents[p_u]=l;
+                changed = true;
+              }
+
+              if (gp_v>l) {
+                //std::atomic_compare_exchange_strong(parents[p_v], gp_v, l);
+                parents[p_v]=l;
+                changed = true;
               }
             };
             GA.get_vertex(u).out_neighbors().map(map_f);
           },
-          1);
+          128);
     }
+
+
     std::cout << "#rounds = " << rounds << std::endl;
   }
 
@@ -131,6 +228,7 @@ struct MMAlgorithm {
     bool changed = true;
 
     size_t rounds = 0;
+
     while (changed) {
       rounds++;
       std::cout << "# running round = " << rounds << std::endl;

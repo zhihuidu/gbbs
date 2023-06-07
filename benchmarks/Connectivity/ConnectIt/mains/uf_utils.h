@@ -24,6 +24,23 @@ bool run_multiple_uf_alg(Graph& G, size_t rounds, sequence<parent>& correct,
   return run_multiple(G, rounds, correct, name, P, test);
 }
 
+template <class Graph, SamplingOption sampling_option>
+bool run_multiple_contour_alg(Graph& G, size_t rounds, sequence<parent>& correct,
+                         commandLine& P) {
+  auto test = [&](Graph& graph, commandLine params,
+                  sequence<parent>& correct_cc) {
+    timer tt;
+    tt.start();
+    auto CC = run_contour_alg<Graph, sampling_option >(
+        graph, params);
+    double t = tt.stop();
+    if (params.getOptionValue("-check")) {
+      cc_check(correct_cc, CC);
+    }
+    return t;
+  };
+  return run_multiple(G, rounds, correct, "contour", P, test);
+}
 template <class Graph, SamplingOption sampling_option, UniteOption unite_option,
           FindOption find_option, SpliceOption splice_option>
 bool run_multiple_uf_alg(Graph& G, size_t rounds, sequence<parent>& correct,
