@@ -156,6 +156,18 @@ cc_binary(
 )
 
 cc_binary(
+    name = "fastsv",
+    srcs = ["fastsv.cc"],
+    deps = [
+        ":bench_utils",
+        "//benchmarks/Connectivity:common",
+        "//benchmarks/Connectivity/BFSCC:Connectivity",
+        "//benchmarks/Connectivity/ConnectIt:framework",
+        "//benchmarks/Connectivity/WorkEfficientSDB14:Connectivity",
+    ],
+)
+
+cc_binary(
     name = "contour",
     srcs = ["contour.cc"],
     deps = [

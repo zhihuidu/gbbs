@@ -58,6 +58,7 @@ enum AlgorithmType {
   union_find_type,
   liu_tarjan_type,
   shiloach_vishkin_type,
+  fastsv_type,
   contour_type,
   label_prop_type
 };
